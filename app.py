@@ -14,6 +14,14 @@ download_path = "./downloads/"
 
 logging.basicConfig(level=logging.INFO)
 
+def convert_df(df):
+    return df.to_csv(index=False).encode('utf-8')
+
+def results_to_csv(results: dict):
+    df = pd.DataFrame.from_dict(results, orient='index').reset_index().rename(columns={'index': 'question'})
+    return convert_df(df)
+
+
 @st.cache_data
 def process_mp3_file(audio_file, upload_path, download_path, output_audio_file):
     audio_data = AudioSegment.from_mp3(os.path.join(upload_path,audio_file.name))
@@ -106,3 +114,15 @@ if mp3_file is not None:
                 st.markdown(f"**{k}:**")
                 st.write(f"{v['answer']}")
                 st.markdown(f"**Timestamp:** {v['timestamp']}s")
+
+        if results:
+            st.markdown("---")
+            st.markdown("**Download Results**")
+            st.markdown("Download the results as a CSV file")
+            st.download_button(
+                "Download Results",
+                results_to_csv(results),
+                "results.csv",
+                "text/csv",
+                key="download-results"
+            )
