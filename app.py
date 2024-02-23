@@ -22,15 +22,23 @@ def process_mp3_file(audio_file, upload_path, download_path, output_audio_file):
     return output_audio_file
 
 @st.cache_data
-def process_audio(audio_file):
+def process_audio(audio_file: str) -> str:
     client = OpenAI()
     audio = open(audio_file, 'rb')
     transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio,
+            response_format="verbose_json",
+            timestamp_granularities=["segment"]
     )
-    logging.info(f"Transcript: {transcript}")
-    return transcript.text
+    logging.info(f"Transcript: {transcript.text}")
+    segments = transcript.segments # type: ignore
+    data = ""
+    for segment in segments:
+        data += f"Timestamp: {round(float(segment['start']), 1)}s - {round(float(segment['end']), 2)}\n{segment['text']}\n"
+
+    return data
+
 
 @st.cache_data
 def process_csv_file(csv_file):
@@ -45,7 +53,7 @@ def process_results(transcript, questions):
     resp = client.chat.completions.create(
             model='gpt-4',
             messages = [
-                {"role": "system", "content": "You are a claims adjuster. You have a list of questions that need to be filled out. Use the provided transcript to answer the questions. Return the answers as a JSON object"},
+                {"role": "system", "content": "You are a claims adjuster. You have a list of questions that need to be filled out. Use the provided transcript to answer the questions. Return the answers as a JSON object. For each answer, include the timestamp(s) from which the answer was obtained"},
                 {"role": "user", "content": transcript}
             ],
             tools = [
@@ -95,4 +103,6 @@ if mp3_file is not None:
         if st.toggle('Show Results'):
             st.markdown("**Results**")
             for k, v in results.items():
-                st.write(f"{k}: {v}")
+                st.markdown(f"**{k}:**")
+                st.write(f"{v['answer']}")
+                st.markdown(f"**Timestamp:** {v['timestamp']}s")
